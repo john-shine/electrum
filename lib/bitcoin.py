@@ -31,6 +31,7 @@ import json
 
 import ecdsa
 import pyaes
+import x13bcd_hash
 
 from .util import bfh, bh2u, to_string
 from . import version
@@ -82,6 +83,9 @@ class NetworkConstants:
         cls.DEFAULT_PORTS = {'t': '50001', 's': '50002'}
         cls.DEFAULT_SERVERS = read_json('servers.json', {})
         cls.CHECKPOINTS = read_json('checkpoints.json', [])
+        # Bitcoin Diamond fork block specification
+        cls.BITCOIN_DIAMOND_FORK_BLOCK_HEIGHT = 495867
+        cls.BITCOIN_DIAMOND_FORK_BLOCK_HASH = '458535405446053c9db6a16ec7e5b022429fedde605ce81bb24c6cfe6f43fc89'
 
     @classmethod
     def set_testnet(cls):
@@ -247,6 +251,10 @@ def Hash(x):
     out = bytes(sha256(sha256(x)))
     return out
 
+def bcd_Hash(x):
+    x = to_bytes(x, 'utf8')
+    out = bytes(x13bcd_hash.getPoWHash(x))
+    return out
 
 hash_encode = lambda x: bh2u(x[::-1])
 hash_decode = lambda x: bfh(x)[::-1]

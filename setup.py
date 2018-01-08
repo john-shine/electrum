@@ -33,8 +33,9 @@ if platform.system() in ['Linux', 'FreeBSD', 'DragonFly']:
     ]
 
 setup(
-    name="Electrum",
+    name='Electrum BCD',
     version=version.ELECTRUM_VERSION,
+    app=['electrum'],
     install_requires=[
         'pyaes>=0.1a1',
         'ecdsa>=0.9',
@@ -82,10 +83,10 @@ setup(
     },
     scripts=['electrum'],
     data_files=data_files,
-    description="Lightweight Bitcoin Wallet",
-    author="Thomas Voegtlin",
-    author_email="thomasv@electrum.org",
-    license="MIT Licence",
-    url="https://electrum.org",
-    long_description="""Lightweight Bitcoin Wallet"""
+    description='Lightweight BitcoinDiamond Wallet',
+    author='Thomas Voegtlin',
+    author_email='thomasv@electrum.org',
+    license='MIT Licence',
+    url='https://electrum.org',
+    long_description='Lightweight BitcoinDiamond Wallet'
 )

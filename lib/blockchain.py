@@ -57,6 +57,8 @@ def hash_header(header):
         header['prev_block_hash'] = '00'*32
     return hash_encode(Hash(bfh(serialize_header(header))))
 
+def bcd_hash_header(header):
+    return hash_encode(bcd_Hash(bfh(serialize_header(header))))
 
 blockchains = {}
 
@@ -149,11 +151,16 @@ class Blockchain(util.PrintError):
         self._size = os.path.getsize(p)//80 if os.path.exists(p) else 0
 
     def verify_header(self, header, prev_hash, target):
-        _hash = hash_header(header)
+        if header.get('block_height') >= NetworkConstants.BITCOIN_DIAMOND_FORK_BLOCK_HEIGHT:
+            _hash = bcd_hash_header(header)
+        else:
+            _hash = hash_header(header)
         if prev_hash != header.get('prev_block_hash'):
             raise BaseException("prev hash mismatch: %s vs %s" % (prev_hash, header.get('prev_block_hash')))
         if bitcoin.NetworkConstants.TESTNET:
             return
+        if header.get('block_height') == NetworkConstants.BITCOIN_DIAMOND_FORK_BLOCK_HEIGHT and hash_header(header) != NetworkConstants.BITCOIN_DIAMOND_FORK_BLOCK_HASH:
+            raise BaseException("block at height %i is not bitcoin diamond chain fork block. hash %s" % (header.get('block_height'), hash_header(header)))            
         bits = self.target_to_bits(target)
         if bits != header.get('bits'):
             raise BaseException("bits mismatch: %s vs %s" % (bits, header.get('bits')))
@@ -270,10 +277,14 @@ class Blockchain(util.PrintError):
         else:
             return hash_header(self.read_header(height))
 
-    def get_target(self, index):
+    def get_target(self, height):
         # compute target from chunk x, used in chunk x+1
         if bitcoin.NetworkConstants.TESTNET:
             return 0, 0
+        if height < NetworkConstants.BITCOIN_DIAMOND_FORK_BLOCK_HEIGHT:
+           index = height // 2016 - 1
+        else:
+             return self.get_bcd_target(height)        
         if index == -1:
             return 0x1d00ffff, MAX_TARGET
         if index < len(self.checkpoints):
@@ -290,6 +301,28 @@ class Blockchain(util.PrintError):
         nActualTimespan = min(nActualTimespan, nTargetTimespan * 4)
         new_target = min(MAX_TARGET, (target * nActualTimespan) // nTargetTimespan)
         return new_target
+
+    def get_bcd_target(self, height):
+        bcd_height = height - NetworkConstants.BITCOIN_DIAMOND_FORK_BLOCK_HEIGHT
+        if bcd_height == 0:
+            return MAX_TARGET
+
+        if bcd_height < 72:
+            return MAX_TARGET // 256
+
+        index = bcd_height // 72 - 1
+        # new target
+        first = self.read_header(index * 72 + NetworkConstants.BITCOIN_DIAMOND_FORK_BLOCK_HEIGHT)
+        last = self.read_header(index * 72 + 71 + NetworkConstants.BITCOIN_DIAMOND_FORK_BLOCK_HEIGHT)
+        bits = last.get('bits')
+        target = self.bits_to_target(bits)
+        nActualTimespan = last.get('timestamp') - first.get('timestamp')
+        nTargetTimespan = 12 * 60 * 60
+        nActualTimespan = max(nActualTimespan, nTargetTimespan // 2)
+        nActualTimespan = min(nActualTimespan, nTargetTimespan * 2)
+        new_target = min(MAX_TARGET, (target * nActualTimespan) // nTargetTimespan)
+        return new_target
+
 
     def bits_to_target(self, bits):
         bitsN = (bits >> 24) & 0xff
@@ -323,7 +356,7 @@ class Blockchain(util.PrintError):
             return False
         if prev_hash != header.get('prev_block_hash'):
             return False
-        target = self.get_target(height // 2016 - 1)
+        target = self.get_target(height)
         try:
             self.verify_header(header, prev_hash, target)
         except BaseException as e:
@@ -347,6 +380,6 @@ class Blockchain(util.PrintError):
         n = self.height() // 2016
         for index in range(n):
             h = self.get_hash((index+1) * 2016 -1)
-            target = self.get_target(index)
+            target = self.get_target(index)  # todo
             cp.append((h, target))
         return cp
