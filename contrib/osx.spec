@@ -10,7 +10,7 @@ for i, x in enumerate(sys.argv):
 else:
     raise BaseException('no version')
 
-home = '/Users/xiaoming/Electrum-Diamond/'
+home = '/Users/xiaoming/electrum/'
 block_cipher=None
 
 # see https://github.com/pyinstaller/pyinstaller/issues/2005
@@ -63,13 +63,13 @@ exe = EXE(pyz,
           debug=False,
           strip=False,
           upx=True,
-          icon=home+'bcd.icns',
+          icon=home+'electrum_bcd.icns',
           console=False)
 
 app = BUNDLE(exe,
              version = VERSION,
              name='Electrum-BCD.app',
-             icon=home+'bcd.icns',
+             icon=home+'electrum_bcd.icns',
              bundle_identifier=None,
              info_plist = {
                  'NSHighResolutionCapable':'True'
