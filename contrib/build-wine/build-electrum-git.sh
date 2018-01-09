@@ -39,6 +39,7 @@ done
 popd
 
 pushd electrum
+git checkout $BRANCH
 if [ ! -z "$1" ]; then
     git checkout $1
 fi
