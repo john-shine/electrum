@@ -1027,7 +1027,7 @@ class Abstract_Wallet(PrintError):
     def is_used(self, address):
         h = self.history.get(address,[])
         c, u, x = self.get_addr_balance(address)
-        return len(h) > 0 and c + u + x == 0        
+        return len(h) > 0 and c + u + x == 0
 
     def is_empty(self, address):
         c, u, x = self.get_addr_balance(address)
@@ -1444,7 +1444,7 @@ class Imported_Wallet(Simple_Wallet):
         return False
 
     def is_deterministic(self):
-        return False    
+        return False
 
     def is_change(self, address):
         return False

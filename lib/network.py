@@ -548,8 +548,8 @@ class Network(util.DaemonThread):
                 self.config.update_fee_estimates(i, fee)
                 self.print_error("fee_estimates[%d]" % i, fee)
                 self.notify('fee')
-        elif method == 'blockchain.relayfee':           
-            if error is None:              
+        elif method == 'blockchain.relayfee':
+            if error is None:
                 self.relay_fee = int(result * COIN)
                 self.print_error("relayfee", self.relay_fee)
         elif method == 'blockchain.block.get_chunk':
