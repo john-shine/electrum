@@ -15,7 +15,6 @@ echo "Installing dependencies"
 
 pushd $contrib/..
 python3 setup.py install
-popd
 
 pip freeze | sed '/^Electrum/ d' > $contrib/requirements.txt
 

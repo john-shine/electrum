@@ -170,7 +170,7 @@ class HistoryList(MyTreeWidget):
             else:
                 child_tx = self.wallet.cpfp(self.wallet.network.get_pre_blockhash(), tx, 0)
                 if child_tx:
-                    menu.addAction(_("Child pays for parent"), lambda: self.parent.cpfp(self.wallet.network.get_pre_blockhash(), tx, child_tx))
+                    menu.addAction(_("Child pays for parent"), lambda: self.parent.cpfp(tx, child_tx))
         if pr_key:
             menu.addAction(QIcon(":icons/seal"), _("View invoice"), lambda: self.parent.show_invoice(pr_key))
         if tx_URL:
