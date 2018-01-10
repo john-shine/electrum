@@ -489,7 +489,7 @@ class ElectrumWindow(App):
                 self.load_wallet(wallet)
                 self.on_resume()
         else:
-            Logger.debug('Electrum-Diamond: Wallet not found. Launching install wizard')
+            Logger.debug('Electrum BCD: Wallet not found. Launching install wizard')
             storage = WalletStorage(path)
             wizard = Factory.InstallWizard(self.electrum_config, storage)
             wizard.bind(on_wizard_complete=self.on_wizard_complete)
