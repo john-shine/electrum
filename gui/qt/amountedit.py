@@ -30,7 +30,7 @@ class AmountEdit(MyLineEdit):
         self.help_palette = QPalette()
 
     def decimal_point(self):
-        return 8
+        return 7
 
     def numbify(self):
         text = self.text().strip()
@@ -81,11 +81,11 @@ class BTCAmountEdit(AmountEdit):
 
     def _base_unit(self):
         p = self.decimal_point()
-        if p == 8:
-            return 'BTC'
-        if p == 5:
-            return 'mBTC'
-        if p == 2:
+        if p == 7:
+            return 'BCD'
+        if p == 4:
+            return 'mBCD'
+        if p == 1:
             return 'bits'
         raise Exception('Unknown base unit')
 
@@ -107,8 +107,8 @@ class BTCAmountEdit(AmountEdit):
 class FeerateEdit(BTCAmountEdit):
     def _base_unit(self):
         p = self.decimal_point()
-        if p == 2:
-            return 'mBTC/kB'
+        if p == 1:
+            return 'mBCD/kB'
         if p == 0:
             return 'sat/byte'
         raise Exception('Unknown base unit')

@@ -462,6 +462,7 @@ def deserialize(raw):
     d = {}
     start = vds.read_cursor
     d['version'] = vds.read_int32()
+    d['preblockhash'] = vds.read_bytes(32).hex() if d['version'] == 12 else ''
     n_vin = vds.read_compact_size()
     is_segwit = (n_vin == 0)
     if is_segwit:
@@ -501,8 +502,6 @@ def multisig_script(public_keys, m):
     return op_m + ''.join(keylist) + op_n + 'ae'
 
 
-
-
 class Transaction:
 
     def __str__(self):
@@ -519,10 +518,12 @@ class Transaction:
             self.raw = raw['hex']
         else:
             raise BaseException("cannot initialize transaction", raw)
+
+        self.preblockhash = ''
         self._inputs = None
         self._outputs = None
         self.locktime = 0
-        self.version = 1
+        self.version = 12 
 
     def update(self, raw):
         self.raw = raw
@@ -587,6 +588,7 @@ class Transaction:
         if self._inputs is not None:
             return
         d = deserialize(self.raw)
+        self.preblockhash = rev_hex(d['preblockhash'])
         self._inputs = d['inputs']
         self._outputs = [(x['type'], x['address'], x['value']) for x in d['outputs']]
         self.locktime = d['lockTime']
@@ -594,8 +596,9 @@ class Transaction:
         return d
 
     @classmethod
-    def from_io(klass, inputs, outputs, locktime=0):
+    def from_io(klass, preblockhash, inputs, outputs, locktime=0):
         self = klass(None)
+        self.preblockhash = preblockhash
         self._inputs = inputs
         self._outputs = outputs
         self.locktime = locktime
@@ -663,7 +666,7 @@ class Transaction:
 
     @classmethod
     def serialize_witness(self, txin, estimate_size=False):
-        add_w = lambda x: var_int(len(x)//2) + x
+        add_w = lambda x: (var_int(len(x)//2) + x)
         if not self.is_segwit_input(txin):
             return '00'
         pubkeys, sig_list = self.get_siglist(txin, estimate_size)
@@ -776,12 +779,12 @@ class Transaction:
 
     def serialize_preimage(self, i):
         nVersion = int_to_hex(self.version, 4)
+        nPreblockhash = rev_hex(self.preblockhash)
         nHashType = int_to_hex(1, 4)
         nLocktime = int_to_hex(self.locktime, 4)
         inputs = self.inputs()
         outputs = self.outputs()
         txin = inputs[i]
-        # TODO: py3 hex
         if self.is_segwit_input(txin):
             hashPrevouts = bh2u(Hash(bfh(''.join(self.serialize_outpoint(txin) for txin in inputs))))
             hashSequence = bh2u(Hash(bfh(''.join(int_to_hex(txin.get('sequence', 0xffffffff - 1), 4) for txin in inputs))))
@@ -791,11 +794,11 @@ class Transaction:
             scriptCode = var_int(len(preimage_script) // 2) + preimage_script
             amount = int_to_hex(txin['value'], 8)
             nSequence = int_to_hex(txin.get('sequence', 0xffffffff - 1), 4)
-            preimage = nVersion + hashPrevouts + hashSequence + outpoint + scriptCode + amount + nSequence + hashOutputs + nLocktime + nHashType
+            preimage = nVersion + nPreblockhash + hashPrevouts + hashSequence + outpoint + scriptCode + amount + nSequence + hashOutputs + nLocktime + nHashType
         else:
             txins = var_int(len(inputs)) + ''.join(self.serialize_input(txin, self.get_preimage_script(txin) if i==k else '') for k, txin in enumerate(inputs))
             txouts = var_int(len(outputs)) + ''.join(self.serialize_output(o) for o in outputs)
-            preimage = nVersion + txins + txouts + nLocktime + nHashType
+            preimage = nVersion + nPreblockhash + txins + txouts + nLocktime + nHashType
         return preimage
 
     def is_segwit(self):
@@ -803,6 +806,7 @@ class Transaction:
 
     def serialize(self, estimate_size=False, witness=True):
         nVersion = int_to_hex(self.version, 4)
+        nPreblockhash = rev_hex(self.preblockhash) if self.version == 12 else ''
         nLocktime = int_to_hex(self.locktime, 4)
         inputs = self.inputs()
         outputs = self.outputs()
@@ -812,9 +816,9 @@ class Transaction:
             marker = '00'
             flag = '01'
             witness = ''.join(self.serialize_witness(x, estimate_size) for x in inputs)
-            return nVersion + marker + flag + txins + txouts + witness + nLocktime
+            return nVersion + nPreblockhash + marker + flag + txins + txouts + witness + nLocktime
         else:
-            return nVersion + txins + txouts + nLocktime
+            return nVersion + nPreblockhash + txins + txouts + nLocktime
 
     def hash(self):
         print("warning: deprecated tx.hash()")

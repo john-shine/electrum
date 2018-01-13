@@ -154,7 +154,7 @@ class ElectrumWindow(App):
         self._trigger_update_history()
 
     def _get_bu(self):
-        return self.electrum_config.get('base_unit', 'mBTC')
+        return self.electrum_config.get('base_unit', 'mBCD')
 
     def _set_bu(self, value):
         assert value in base_units.keys()
@@ -187,7 +187,7 @@ class ElectrumWindow(App):
         rate = self.fx.exchange_rate()
         if not rate:
             return ''
-        satoshis = int(pow(10,8) * Decimal(fiat_amount) / Decimal(rate))
+        satoshis = int(pow(10,7) * Decimal(fiat_amount) / Decimal(rate))
         return format_satoshis_plain(satoshis, self.decimal_point())
 
     def get_amount(self, amount_str):
@@ -241,7 +241,7 @@ class ElectrumWindow(App):
 
         App.__init__(self)#, **kwargs)
 
-        title = _('Electrum App')
+        title = _('Electrum BCD App')
         self.electrum_config = config = kwargs.get('config', None)
         self.language = config.get('language', 'en')
         self.network = network = kwargs.get('network', None)
@@ -300,7 +300,7 @@ class ElectrumWindow(App):
         if is_address(data):
             self.set_URI(data)
             return
-        if data.startswith('bitcoin:'):
+        if data.startswith('bitcoindiamond:'):
             self.set_URI(data)
             return
         # try to decode transaction
@@ -325,7 +325,7 @@ class ElectrumWindow(App):
 
     @profiler
     def update_tabs(self):
-        for tab in ['invoices', 'send', 'history', 'receive', 'requests']:
+        for tab in ['invoices', 'send', 'history', 'receive', 'address']:
             self.update_tab(tab)
 
     def switch_to(self, name):
@@ -384,45 +384,23 @@ class ElectrumWindow(App):
     def scan_qr(self, on_complete):
         if platform != 'android':
             return
-        from jnius import autoclass
+        from jnius import autoclass, cast
         from android import activity
         PythonActivity = autoclass('org.kivy.android.PythonActivity')
+        SimpleScannerActivity = autoclass("org.electrum.qr.SimpleScannerActivity")
         Intent = autoclass('android.content.Intent')
-        intent = Intent("com.google.zxing.client.android.SCAN")
-        intent.putExtra("SCAN_MODE", "QR_CODE_MODE")
-        def on_qr_result(requestCode, resultCode, intent):
-            if requestCode == 0:
-                if resultCode == -1: # RESULT_OK:
-                    contents = intent.getStringExtra("SCAN_RESULT")
-                    if intent.getStringExtra("SCAN_RESULT_FORMAT") == 'QR_CODE':
-                        on_complete(contents)
-                    else:
-                        self.show_error("wrong format " + intent.getStringExtra("SCAN_RESULT_FORMAT"))
-        activity.bind(on_activity_result=on_qr_result)
-        try:
-            PythonActivity.mActivity.startActivityForResult(intent, 0)
-        except:
-            self.show_error(_('Could not start Barcode Scanner.') + ' ' + _('Please install the Barcode Scanner app from ZXing'))
+        intent = Intent(PythonActivity.mActivity, SimpleScannerActivity)
 
-    def scan_qr_zxing(self, on_complete):
-        # uses zxing embedded lib
-        if platform != 'android':
-            return
-        from jnius import autoclass
-        from android import activity
-        PythonActivity = autoclass('org.kivy.android.PythonActivity')
-        IntentIntegrator = autoclass('com.google.zxing.integration.android.IntentIntegrator')
-        integrator = IntentIntegrator(PythonActivity.mActivity)
         def on_qr_result(requestCode, resultCode, intent):
-            if requestCode == 0:
-                if resultCode == -1: # RESULT_OK:
-                    contents = intent.getStringExtra("SCAN_RESULT")
-                    if intent.getStringExtra("SCAN_RESULT_FORMAT") == 'QR_CODE':
-                        on_complete(contents)
-                    else:
-                        self.show_error("wrong format " + intent.getStringExtra("SCAN_RESULT_FORMAT"))
+            if resultCode == -1:  # RESULT_OK:
+                #  this doesn't work due to some bug in jnius:
+                # contents = intent.getStringExtra("text")
+                String = autoclass("java.lang.String")
+                contents = intent.getStringExtra(String("text"))
+                on_complete(contents)
         activity.bind(on_activity_result=on_qr_result)
-        integrator.initiateScan()
+
+        PythonActivity.mActivity.startActivityForResult(intent, 0)
 
     def do_share(self, data, title):
         if platform != 'android':
@@ -468,7 +446,7 @@ class ElectrumWindow(App):
         self.fiat_unit = self.fx.ccy if self.fx.is_enabled() else ''
         # default tab
         self.switch_to('history')
-        # bind intent for bitcoin: URI scheme
+        # bind intent for bitcoindiamond: URI scheme
         if platform == 'android':
             from android import activity
             from jnius import autoclass
@@ -511,7 +489,7 @@ class ElectrumWindow(App):
                 self.load_wallet(wallet)
                 self.on_resume()
         else:
-            Logger.debug('Electrum: Wallet not found. Launching install wizard')
+            Logger.debug('Electrum BCD: Wallet not found. Launching install wizard')
             storage = WalletStorage(path)
             wizard = Factory.InstallWizard(self.electrum_config, storage)
             wizard.bind(on_wizard_complete=self.on_wizard_complete)
@@ -604,7 +582,7 @@ class ElectrumWindow(App):
         self.receive_screen = None
         self.requests_screen = None
         self.address_screen = None
-        self.icon = "icons/electrum.png"
+        self.icon = "icons/electrum_bcd.png"
         self.tabs = self.root.ids['tabs']
 
     def update_interfaces(self, dt):
@@ -694,7 +672,7 @@ class ElectrumWindow(App):
             icon = (os.path.dirname(os.path.realpath(__file__))
                     + '/../../' + self.icon)
             notification.notify('Electrum', message,
-                            app_icon=icon, app_name='Electrum')
+                            app_icon=icon, app_name='Electrum BCD')
         except ImportError:
             Logger.Error('Notification: needs plyer; `sudo pip install plyer`')
 

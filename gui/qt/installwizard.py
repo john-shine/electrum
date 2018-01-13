@@ -22,9 +22,9 @@ from .password_dialog import PasswordLayout, PW_NEW
 class GoBack(Exception):
     pass
 
-MSG_GENERATING_WAIT = _("Electrum is generating your addresses, please wait...")
+MSG_GENERATING_WAIT = _("Electrum BCD is generating your addresses, please wait...")
 MSG_ENTER_ANYTHING = _("Please enter a seed phrase, a master key, a list of "
-                       "Bitcoin addresses, or a list of private keys")
+                       "BitcoinDiamond addresses, or a list of private keys")
 MSG_ENTER_SEED_OR_MPK = _("Please enter a seed phrase or a master key (xpub or xprv):")
 MSG_COSIGNER = _("Please enter the master public key of cosigner #%d:")
 MSG_ENTER_PASSWORD = _("Choose a password to encrypt your wallet keys.") + '\n'\
@@ -102,7 +102,7 @@ class InstallWizard(QDialog, MessageBoxMixin, BaseWizard):
     def __init__(self, config, app, plugins, storage):
         BaseWizard.__init__(self, config, storage)
         QDialog.__init__(self, None)
-        self.setWindowTitle('Electrum  -  ' + _('Install Wizard'))
+        self.setWindowTitle('Electrum BCD -  ' + _('Install Wizard'))
         self.app = app
         self.config = config
         # Set for base base class
@@ -147,7 +147,7 @@ class InstallWizard(QDialog, MessageBoxMixin, BaseWizard):
         hbox.setStretchFactor(scroll, 1)
         outer_vbox.addLayout(hbox)
         outer_vbox.addLayout(Buttons(self.back_button, self.next_button))
-        self.set_icon(':icons/electrum.png')
+        self.set_icon(':icons/electrum_bcd@0.5x.png')
         self.show()
         self.raise_()
         self.refresh_gui()  # Need for QT on MacOSX.  Lame.
@@ -174,7 +174,7 @@ class InstallWizard(QDialog, MessageBoxMixin, BaseWizard):
         hbox2.addWidget(self.pw_e)
         hbox2.addStretch()
         vbox.addLayout(hbox2)
-        self.set_layout(vbox, title=_('Electrum wallet'))
+        self.set_layout(vbox, title=_('Electrum BCD wallet'))
 
         wallet_folder = os.path.dirname(self.storage.path)
 
@@ -290,7 +290,7 @@ class InstallWizard(QDialog, MessageBoxMixin, BaseWizard):
 
     def set_icon(self, filename):
         prior_filename, self.icon_filename = self.icon_filename, filename
-        self.logo.setPixmap(QPixmap(filename).scaledToWidth(60))
+        self.logo.setPixmap(QPixmap(filename).scaledToWidth(64))
         return prior_filename
 
     def set_layout(self, layout, title=None, next_enabled=True):
@@ -488,7 +488,7 @@ class InstallWizard(QDialog, MessageBoxMixin, BaseWizard):
         return None
 
     def init_network(self, network):
-        message = _("Electrum communicates with remote servers to get "
+        message = _("Electrum BCD communicates with remote servers to get "
                   "information about your transactions and addresses. The "
                   "servers all fulfill the same purpose only differing in "
                   "hardware. In most cases you simply want to let Electrum "
@@ -527,10 +527,10 @@ class InstallWizard(QDialog, MessageBoxMixin, BaseWizard):
         grid.addWidget(m_label, 1, 0)
         grid.addWidget(m_edit, 1, 1)
         def on_m(m):
-            m_label.setText(_('Require {0} signatures').format(m))
+            m_label.setText(_('Require %d signatures')%m)
             cw.set_m(m)
         def on_n(n):
-            n_label.setText(_('From {0} cosigners').format(n))
+            n_label.setText(_('From %d cosigners')%n)
             cw.set_n(n)
             m_edit.setMaximum(n)
         n_edit.valueChanged.connect(on_n)

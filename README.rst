@@ -95,13 +95,8 @@ Mac OS X / macOS
 
 ::
 
-    # On MacPorts installs: 
-    sudo python3 setup-release.py py2app
-    
-    # On Homebrew installs: 
-    ARCHFLAGS="-arch i386 -arch x86_64" sudo python3 setup-release.py py2app --includes sip
-    
-    sudo hdiutil create -fs HFS+ -volname "Electrum" -srcfolder dist/Electrum.app dist/electrum-VERSION-macosx.dmg
+    ./contrib/freeze_packages.sh
+    ./contrib/make_osx
 
 Windows
 -------

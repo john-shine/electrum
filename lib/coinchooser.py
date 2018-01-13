@@ -175,7 +175,7 @@ class CoinChooserBase(PrintError):
             self.print_error('not keeping dust', dust)
         return change
 
-    def make_tx(self, coins, outputs, change_addrs, fee_estimator,
+    def make_tx(self, preblockhash, coins, outputs, change_addrs, fee_estimator,
                 dust_threshold):
         """Select unspent coins to spend to pay outputs.  If the change is
         greater than dust_threshold (after adding the change output to
@@ -190,7 +190,7 @@ class CoinChooserBase(PrintError):
         self.p = PRNG(''.join(sorted(utxos)))
 
         # Copy the ouputs so when adding change we don't modify "outputs"
-        tx = Transaction.from_io([], outputs[:])
+        tx = Transaction.from_io(preblockhash, [], outputs[:])
         # Weight of the transaction with no inputs and no change
         # Note: this will use legacy tx serialization as the need for "segwit"
         # would be detected from inputs. The only side effect should be that the
@@ -229,13 +229,11 @@ class CoinChooserBase(PrintError):
 
         tx.add_inputs([coin for b in buckets for coin in b.coins])
         tx_weight = get_tx_weight(buckets)
-
         # This takes a count of change outputs and returns a tx fee
         output_weight = 4 * Transaction.estimated_output_size(change_addrs[0])
         fee = lambda count: fee_estimator_w(tx_weight + count * output_weight)
         change = self.change_outputs(tx, change_addrs, fee, dust_threshold)
         tx.add_outputs(change)
-
         self.print_error("using %d inputs" % len(tx.inputs()))
         self.print_error("using buckets:", [bucket.desc for bucket in buckets])
 
@@ -308,7 +306,6 @@ class CoinChooserRandom(CoinChooserBase):
                 already_selected_buckets += bkts_choose_from
         else:
             raise NotEnoughFunds()
-
         candidates = [(already_selected_buckets + c) for c in candidates]
         return [strip_unneeded(c, sufficient_funds) for c in candidates]
 

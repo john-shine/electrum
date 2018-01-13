@@ -14,8 +14,7 @@ source $venv_dir/bin/activate
 echo "Installing dependencies"
 
 pushd $contrib/..
-python setup.py install
-popd
+python3 setup.py install
 
 pip freeze | sed '/^Electrum/ d' > $contrib/requirements.txt
 

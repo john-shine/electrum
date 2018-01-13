@@ -217,7 +217,7 @@ class Wallet_2fa(Multisig_Wallet):
                        (TYPE_ADDRESS, billing_address, xf)]
         else:
             outputs = [(_type, addr, sendable)]
-        dummy_tx = Transaction.from_io(inputs, outputs)
+        dummy_tx = Transaction.from_io(self.preblockhash, inputs, outputs)
         if fee is None:
             fee = self.estimate_fee(config, dummy_tx.estimated_size())
         amount = max(0, sendable - fee)
@@ -248,7 +248,7 @@ class Wallet_2fa(Multisig_Wallet):
         assert price <= 100000 * n
         return price
 
-    def make_unsigned_transaction(self, coins, outputs, config, fixed_fee=None,
+    def make_unsigned_transaction(self, preblockhash, coins, outputs, config, fixed_fee=None,
                                   change_addr=None, is_sweep=False):
         mk_tx = lambda o: Multisig_Wallet.make_unsigned_transaction(
             self, coins, o, config, fixed_fee, change_addr)

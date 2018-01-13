@@ -29,12 +29,13 @@ if platform.system() in ['Linux', 'FreeBSD', 'DragonFly']:
             usr_share = os.path.expanduser('~/.local/share')
     data_files += [
         (os.path.join(usr_share, 'applications/'), ['electrum.desktop']),
-        (os.path.join(usr_share, 'pixmaps/'), ['icons/electrum.png'])
+        (os.path.join(usr_share, 'pixmaps/'), ['icons/electrum_bcd.png'])
     ]
 
 setup(
-    name="Electrum",
+    name='Electrum BCD',
     version=version.ELECTRUM_VERSION,
+    app=['electrum'],
     install_requires=[
         'pyaes>=0.1a1',
         'ecdsa>=0.9',
@@ -45,6 +46,7 @@ setup(
         'dnspython',
         'jsonrpclib-pelix',
         'PySocks>=1.6.6',
+        'x13bcd-hash',
     ],
     packages=[
         'electrum',
@@ -82,10 +84,10 @@ setup(
     },
     scripts=['electrum'],
     data_files=data_files,
-    description="Lightweight Bitcoin Wallet",
-    author="Thomas Voegtlin",
-    author_email="thomasv@electrum.org",
-    license="MIT Licence",
-    url="https://electrum.org",
-    long_description="""Lightweight Bitcoin Wallet"""
+    description='Lightweight BitcoinDiamond Wallet',
+    author='Thomas Voegtlin',
+    author_email='thomasv@electrum.org',
+    license='MIT Licence',
+    url='https://electrum.org',
+    long_description='Lightweight BitcoinDiamond Wallet'
 )

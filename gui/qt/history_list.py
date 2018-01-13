@@ -168,7 +168,7 @@ class HistoryList(MyTreeWidget):
             if rbf:
                 menu.addAction(_("Increase fee"), lambda: self.parent.bump_fee_dialog(tx))
             else:
-                child_tx = self.wallet.cpfp(tx, 0)
+                child_tx = self.wallet.cpfp(self.wallet.network.get_pre_blockhash(), tx, 0)
                 if child_tx:
                     menu.addAction(_("Child pays for parent"), lambda: self.parent.cpfp(tx, child_tx))
         if pr_key:
