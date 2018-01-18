@@ -170,7 +170,8 @@ class Blockchain(util.PrintError):
     def verify_chunk(self, index, data):
         num = len(data) // 80
         prev_hash = self.get_hash(index * 2016 - 1)
-        target = self.get_target(index-1)
+        # target = self.get_target(index-1)
+        target = self.get_target(index * 2016)
         for i in range(num):
             raw_header = data[i*80:(i+1) * 80]
             header = deserialize_header(raw_header, index*2016 + i)
@@ -286,7 +287,7 @@ class Blockchain(util.PrintError):
         else:
              return self.get_bcd_target(height)        
         if index == -1:
-            return 0x1d00ffff, MAX_TARGET
+            return MAX_TARGET
         if index < len(self.checkpoints):
             h, t = self.checkpoints[index]
             return t
