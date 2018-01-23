@@ -1,13 +1,20 @@
+# Release 3.0.5.3
+ * Disable 2FA
+
+# Release 3.0.5.2
+ * Fix a bug that transaction can't verified and balance is 0 when restore a wallet.
+
+# Release 3.0.5.1
+ * Support BitcoinDiamond
+
 # Release 3.0.5 : (Security update)
 
 This is a follow-up to the 3.0.4 release, which did not completely fix
 issue #3374. Users should upgrade to 3.0.5.
 
- * Support BitcoinDiamond 
  * The JSONRPC interface is password protected
  * JSONRPC commands are disabled if the GUI is running, except 'ping',
    which is used to determine if a GUI is already running
-
 
 # Release 3.0.4 : (Security update)
 
