@@ -47,7 +47,7 @@ class SPV(ThreadJob):
                 #print(index, header)
                 if header is None:
                     if index not in self.requested_chunks  and self.network.interface:
-                        print("requesting chunk", index)
+                        self.print_error("requesting chunk", index)
                         #request = ('blockchain.block.get_chunk', [index])
                         #self.network.send([request], self.verify_merkle)
                         self.requested_chunks[index] = None

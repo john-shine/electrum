@@ -159,7 +159,8 @@ class Blockchain(util.PrintError):
             raise BaseException("prev hash mismatch: %s vs %s" % (prev_hash, header.get('prev_block_hash')))
         if bitcoin.NetworkConstants.TESTNET:
             return
-        if header.get('block_height') == NetworkConstants.BITCOIN_DIAMOND_FORK_BLOCK_HEIGHT and hash_header(header) != NetworkConstants.BITCOIN_DIAMOND_FORK_BLOCK_HASH:
+        if (header.get('block_height') == NetworkConstants.BITCOIN_DIAMOND_FORK_BLOCK_HEIGHT and 
+            hash_header(header) != NetworkConstants.BITCOIN_DIAMOND_FORK_BLOCK_HASH):
             raise BaseException("block at height %i is not bitcoin diamond chain fork block. hash %s" % (header.get('block_height'), hash_header(header)))            
         bits = self.target_to_bits(target)
         if bits != header.get('bits'):
@@ -170,11 +171,30 @@ class Blockchain(util.PrintError):
     def verify_chunk(self, index, data):
         num = len(data) // 80
         prev_hash = self.get_hash(index * 2016 - 1)
-        # target = self.get_target(index-1)
         target = self.get_target(index * 2016)
         for i in range(num):
-            raw_header = data[i*80:(i+1) * 80]
-            header = deserialize_header(raw_header, index*2016 + i)
+            height = index * 2016 + i
+            if height >= NetworkConstants.BITCOIN_DIAMOND_FORK_BLOCK_HEIGHT:
+                if height == NetworkConstants.BITCOIN_DIAMOND_FORK_BLOCK_HEIGHT:
+                    target = MAX_TARGET
+                elif height < NetworkConstants.BITCOIN_DIAMOND_FORK_BLOCK_HEIGHT + 72:
+                    target = MAX_TARGET // 256
+                else:
+                    pass
+
+            raw_header = data[i * 80:(i+1) * 80]
+            header = deserialize_header(raw_header, height)
+            self.verify_header(header, prev_hash, target)
+            prev_hash = hash_header(header)
+
+    def verify_chip(self, chip_index, data):
+        num = len(data) // 80
+        prev_hash = self.get_hash(chip_index * 72 - 1 + NetworkConstants.BITCOIN_DIAMOND_FORK_BLOCK_HEIGHT)
+        target = self.get_target(chip_index * 72 + NetworkConstants.BITCOIN_DIAMOND_FORK_BLOCK_HEIGHT)
+        for i in range(num):
+            height = chip_index * 72 + i + NetworkConstants.BITCOIN_DIAMOND_FORK_BLOCK_HEIGHT
+            raw_header = data[i * 80:(i+1) * 80]
+            header = deserialize_header(raw_header, height)
             self.verify_header(header, prev_hash, target)
             prev_hash = hash_header(header)
 
@@ -190,6 +210,15 @@ class Blockchain(util.PrintError):
             chunk = chunk[-d:]
             d = 0
         self.write(chunk, d)
+        self.swap_with_parent()
+
+    def save_chip(self, chip_index, chip):
+        file_name = self.path()
+        d = (chip_index * 72 - self.checkpoint + NetworkConstants.BITCOIN_DIAMOND_FORK_BLOCK_HEIGHT) * 80
+        if d < 0:
+            chip = chip[-d:]
+            d = 0
+        self.write(chip, d)
         self.swap_with_parent()
 
     def swap_with_parent(self):
@@ -230,7 +259,7 @@ class Blockchain(util.PrintError):
         filename = self.path()
         with self.lock:
             with open(filename, 'rb+') as f:
-                if offset != self._size*80:
+                if offset != self._size * 80:
                     f.seek(offset)
                     f.truncate()
                 f.seek(offset)
@@ -265,32 +294,43 @@ class Blockchain(util.PrintError):
             return None
         return deserialize_header(h, height)
 
-    def get_hash(self, height):
+    def get_hash(self, height, ignore_checkpoints = False):
         if height == -1:
             return '0000000000000000000000000000000000000000000000000000000000000000'
         elif height == 0:
             return bitcoin.NetworkConstants.GENESIS
-        elif height < len(self.checkpoints) * 2016:
+        elif (height < len(self.checkpoints) * 2016) and not ignore_checkpoints:
             assert (height+1) % 2016 == 0
             index = height // 2016
-            h, t = self.checkpoints[index]
+            h, t, _ = self.checkpoints[index]
             return h
         else:
             return hash_header(self.read_header(height))
 
-    def get_target(self, height):
+    def get_target(self, height, ignore_checkpoints = False):
         # compute target from chunk x, used in chunk x+1
         if bitcoin.NetworkConstants.TESTNET:
             return 0, 0
+        
+        index = height // 2016 - 1
         if height < NetworkConstants.BITCOIN_DIAMOND_FORK_BLOCK_HEIGHT:
-           index = height // 2016 - 1
+            if index == -1:
+                return MAX_TARGET
+            if index < len(self.checkpoints) and not ignore_checkpoints:
+                h, t, _ = self.checkpoints[index]
+                return t
+
         else:
-             return self.get_bcd_target(height)        
-        if index == -1:
-            return MAX_TARGET
-        if index < len(self.checkpoints):
-            h, t = self.checkpoints[index]
-            return t
+            h, t, d_t = self.checkpoints[index]
+            if height < (len(self.checkpoints) * 2016 + 3) and not ignore_checkpoints:
+                return t
+            elif height < len(self.checkpoints) * 2016 + 74:
+                return d_t
+            else:
+                pass
+
+            return self.get_bcd_target(height)
+
         # new target
         first = self.read_header(index * 2016)
         last = self.read_header(index * 2016 + 2015)
@@ -324,7 +364,6 @@ class Blockchain(util.PrintError):
         new_target = min(MAX_TARGET, (target * nActualTimespan) // nTargetTimespan)
         return new_target
 
-
     def bits_to_target(self, bits):
         bitsN = (bits >> 24) & 0xff
         if not (bitsN >= 0x03 and bitsN <= 0x1d):
@@ -347,29 +386,60 @@ class Blockchain(util.PrintError):
     def can_connect(self, header, check_height=True):
         height = header['block_height']
         if check_height and self.height() != height - 1:
-            #self.print_error("cannot connect at height", height)
+            self.print_error("cannot connect at height:", height)
             return False
         if height == 0:
             return hash_header(header) == bitcoin.NetworkConstants.GENESIS
         try:
             prev_hash = self.get_hash(height - 1)
-        except:
+        except BaseException as e:
+            self.print_error("get prev hash of header failed:", str(e))
             return False
-        if prev_hash != header.get('prev_block_hash'):
+        prev_block_hash = header.get('prev_block_hash')
+        if prev_hash != prev_block_hash:
+            self.print_error("local prev hash (%s) mismatch remote prev hash (%s)" % (prev_hash, prev_block_hash))
             return False
         target = self.get_target(height)
         try:
             self.verify_header(header, prev_hash, target)
         except BaseException as e:
+            self.print_error("verify_header failed:", str(e))
             return False
         return True
 
     def connect_chunk(self, idx, hexdata):
         try:
             data = bfh(hexdata)
-            self.verify_chunk(idx, data)
-            #self.print_error("validated chunk %d" % idx)
-            self.save_chunk(idx, data)
+            if idx <= NetworkConstants.BITCOIN_DIAMOND_FORK_BLOCK_HEIGHT // 2016:
+                self.verify_chunk(idx, data)
+                self.print_error("validated chunk %d" % idx)
+                self.save_chunk(idx, data)
+            else:
+                lead_headers = [data[i:i+80] for i in range(0, len(data[:3*80]), 80)]
+                tail_headers = [data[-69*80:][i:i+80] for i in range(0, len(data[-69*80:]), 80)]
+                left_data = data[3*80:-69*80]
+
+                for i, lead_header in enumerate(lead_headers):
+                    height = idx * 2016 + i
+                    lead_header = deserialize_header(lead_header, height)
+                    if self.can_connect(lead_header):
+                        self.print_error("validated header %d in chip" % height)
+                        self.save_header(lead_header)
+
+                chips = [left_data[i:i+72*80] for i in range(0, len(left_data), 72*80)]
+                for i, chip in enumerate(chips):
+                    cix = (idx - 246) * 2016 // 72 + i + 1
+                    self.verify_chip(cix, chip)
+                    self.print_error("validated chip %d" % cix)
+                    self.save_chip(cix, chip)
+
+                for i, tail_header in enumerate(tail_headers):
+                    height = idx * 2016 + len(lead_headers) + len(left_data) // 80  + i
+                    tail_header = deserialize_header(tail_header, height)
+                    if self.can_connect(tail_header):
+                        self.print_error("validated header %d in chip" % height)
+                        self.save_header(tail_header)
+
             return True
         except BaseException as e:
             self.print_error('verify_chunk failed', str(e))
@@ -377,10 +447,20 @@ class Blockchain(util.PrintError):
 
     def get_checkpoints(self):
         # for each chunk, store the hash of the last block and the target after the chunk
+        file_name = self.path()
+        if os.path.exists(file_name):
+            with open(file_name, 'rb') as f:
+                if f.read(80) == b'\x00' * 80:
+                    raise BaseException('header file is fake, but it must be real!')
+        else:
+            raise BaseException('block header file: %s is not exists' % file_name)
+
         cp = []
-        n = self.height() // 2016
+        n = self.height() // 2016 - 1
         for index in range(n):
-            h = self.get_hash((index+1) * 2016 -1)
-            target = self.get_target(index)  # todo
-            cp.append((h, target))
+            height = (index + 1) * 2016 - 1
+            h = self.get_hash(height, True)
+            target = self.get_target(height + 1, True)
+            delta_target = self.get_target(height + 4, True)
+            cp.append((h, target, delta_target))
         return cp
