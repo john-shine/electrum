@@ -778,10 +778,7 @@ class Network(util.DaemonThread):
             self.connection_down(interface.server)
             return
         if interface.blockchain.height() < interface.tip:
-            if index < bitcoin.NetworkConstants.BITCOIN_DIAMOND_CHECKPOINT_INDEX - 1:
-                self.request_chunk(interface, index+1)
-            else:
-                self.request_header(interface, interface.blockchain.height()+1)
+            self.request_chunk(interface, index+1)
         else:
             interface.request = None
             interface.mode = 'default'
@@ -790,7 +787,7 @@ class Network(util.DaemonThread):
         self.notify('updated')
 
     def request_header(self, interface, height):
-        #interface.print_error("requesting header %d" % height)
+        interface.print_error("requesting header %d" % height)
         self.queue_request('blockchain.block.get_header', [height], interface)
         interface.request = height
         interface.req_time = time.time()
@@ -804,7 +801,7 @@ class Network(util.DaemonThread):
             return
         height = header.get('block_height')
         if interface.request != height:
-            interface.print_error("unsolicited header",interface.request, height)
+            interface.print_error("unsolicited header", interface.request, height)
             self.connection_down(interface.server)
             return
         chain = blockchain.check_header(header)
@@ -831,7 +828,7 @@ class Network(util.DaemonThread):
                     interface.bad = height
                     interface.bad_header = header
                     delta = interface.tip - height
-                    next_height = max(self.max_checkpoint(), interface.tip - 2 * delta)
+                    next_height = max(self.max_checkpoint() + 1, interface.tip - 2 * delta)
 
         elif interface.mode == 'binary':
             if chain:
@@ -843,7 +840,7 @@ class Network(util.DaemonThread):
             if interface.bad != interface.good + 1:
                 next_height = (interface.bad + interface.good) // 2
                 assert next_height >= self.max_checkpoint()
-            elif not interface.blockchain.can_connect(interface.bad_header, check_height=False):
+            elif not interface.blockchain.can_connect(interface.bad_header, False):
                 self.connection_down(interface.server)
                 next_height = None
             else:
@@ -911,7 +908,8 @@ class Network(util.DaemonThread):
         # If not finished, get the next header
         if next_height:
             # self.request_header(interface, next_height)
-            if interface.mode == 'catch_up' and interface.tip > next_height + 50 and next_height < ((bitcoin.NetworkConstants.BITCOIN_DIAMOND_CHECKPOINT_INDEX-1) * 2016):
+            if (interface.mode == 'catch_up' and 
+                interface.tip > (next_height + 50)):
                 self.request_chunk(interface, next_height // 2016)
             else:
                 self.request_header(interface, next_height)
@@ -954,19 +952,20 @@ class Network(util.DaemonThread):
     def init_headers_file(self):
         b = self.blockchains[0]
         filename = b.path()
+        length = 80 * len(bitcoin.NetworkConstants.CHECKPOINTS) * 2016
         if os.path.exists(filename):
             with open(filename, 'rb') as f:
+                f.seek(length)
                 if f.read(80) == b'\x00' * 80:
                     is_fake_headers = True
                     self.print_error("fake headers, will synchronize again")
                 else:
                     is_fake_headers = False
 
-        length = 80 * len(bitcoin.NetworkConstants.CHECKPOINTS) * 2016
         if not os.path.exists(filename) or os.path.getsize(filename) < length or is_fake_headers:
             with open(filename, 'wb') as f:
-                if length>0:
-                    f.seek(length-1)
+                if length > 0:
+                    f.seek(length - 1)
                     f.write(b'\x00')
         with b.lock:
             b.update_size()
@@ -1013,7 +1012,7 @@ class Network(util.DaemonThread):
             interface.mode = 'backward'
             interface.bad = height
             interface.bad_header = header
-            self.request_header(interface, min(tip +1, height - 1))
+            self.request_header(interface, min(tip + 1, height - 1))
         else:
             chain = self.blockchains[0]
             if chain.catch_up is None:

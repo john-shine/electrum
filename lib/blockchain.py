@@ -189,7 +189,8 @@ class Blockchain(util.PrintError):
 
     def verify_chip(self, chip_index, data):
         num = len(data) // 80
-        prev_hash = self.get_hash(chip_index * 72 - 1 + NetworkConstants.BITCOIN_DIAMOND_FORK_BLOCK_HEIGHT)
+        prev_header = self.read_header(chip_index * 72 - 1 + NetworkConstants.BITCOIN_DIAMOND_FORK_BLOCK_HEIGHT)
+        prev_hash = hash_header(prev_header)
         target = self.get_target(chip_index * 72 + NetworkConstants.BITCOIN_DIAMOND_FORK_BLOCK_HEIGHT)
         for i in range(num):
             height = chip_index * 72 + i + NetworkConstants.BITCOIN_DIAMOND_FORK_BLOCK_HEIGHT
@@ -204,6 +205,7 @@ class Blockchain(util.PrintError):
         return os.path.join(d, filename)
 
     def save_chunk(self, index, chunk):
+        self.print_error("save_chunk at:", index)
         filename = self.path()
         d = (index * 2016 - self.checkpoint) * 80
         if d < 0:
@@ -213,6 +215,7 @@ class Blockchain(util.PrintError):
         self.swap_with_parent()
 
     def save_chip(self, chip_index, chip):
+        self.print_error("save_chip at:", chip_index)
         file_name = self.path()
         d = (chip_index * 72 - self.checkpoint + NetworkConstants.BITCOIN_DIAMOND_FORK_BLOCK_HEIGHT) * 80
         if d < 0:
@@ -270,10 +273,19 @@ class Blockchain(util.PrintError):
 
     def save_header(self, header):
         delta = header.get('block_height') - self.checkpoint
+        self.print_error("save_header at:", delta)
         data = bfh(serialize_header(header))
         assert delta == self.size()
         assert len(data) == 80
         self.write(data, delta*80)
+        self.swap_with_parent()
+ 
+    def save_chip_header(self, header):
+        delta = header.get('block_height') - self.checkpoint
+        self.print_error("save_chip_header at:", delta)
+        data = bfh(serialize_header(header))
+        assert len(data) == 80
+        self.write(data, delta * 80)
         self.swap_with_parent()
 
     def read_header(self, height):
@@ -300,12 +312,14 @@ class Blockchain(util.PrintError):
         elif height == 0:
             return bitcoin.NetworkConstants.GENESIS
         elif (height < len(self.checkpoints) * 2016) and not ignore_checkpoints:
-            assert (height+1) % 2016 == 0
-            index = height // 2016
-            h, t, _ = self.checkpoints[index]
-            return h
+            if (height+1) % 2016 == 0:
+                index = height // 2016
+                h, t, _ = self.checkpoints[index]
+                return h
         else:
-            return hash_header(self.read_header(height))
+            pass
+
+        return hash_header(self.read_header(height))
 
     def get_target(self, height, ignore_checkpoints = False):
         # compute target from chunk x, used in chunk x+1
@@ -323,9 +337,9 @@ class Blockchain(util.PrintError):
         else:
             if index < len(self.checkpoints) and not ignore_checkpoints:
                 h, t, d_t = self.checkpoints[index]
-                if height < len(self.checkpoints) * 2016 + 3:
+                if height < (index + 1) * 2016 + 3:
                     return t
-                elif height < len(self.checkpoints) * 2016 + 75:
+                elif height < (index + 1) * 2016 + 75:
                     return d_t
                 else:
                     pass
@@ -423,9 +437,11 @@ class Blockchain(util.PrintError):
                 for i, lead_header in enumerate(lead_headers):
                     height = idx * 2016 + i
                     lead_header = deserialize_header(lead_header, height)
-                    if self.can_connect(lead_header):
+                    if self.can_connect(lead_header, False):
                         self.print_error("validated header %d in chip" % height)
-                        self.save_header(lead_header)
+                        self.save_chip_header(lead_header)
+                    else:
+                        self.print_error("invalidate header %d in chip" % height)
 
                 chips = [left_data[i:i+72*80] for i in range(0, len(left_data), 72*80)]
                 for i, chip in enumerate(chips):
@@ -437,9 +453,11 @@ class Blockchain(util.PrintError):
                 for i, tail_header in enumerate(tail_headers):
                     height = idx * 2016 + len(lead_headers) + len(left_data) // 80  + i
                     tail_header = deserialize_header(tail_header, height)
-                    if self.can_connect(tail_header):
+                    if self.can_connect(tail_header, False):
                         self.print_error("validated header %d in chip" % height)
-                        self.save_header(tail_header)
+                        self.save_chip_header(tail_header)
+                    else:
+                        self.print_error("invalidate header %d in chip" % height)
 
             return True
         except BaseException as e:
