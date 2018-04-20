@@ -321,13 +321,14 @@ class Blockchain(util.PrintError):
                 return t
 
         else:
-            h, t, d_t = self.checkpoints[index]
-            if height < (len(self.checkpoints) * 2016 + 3) and not ignore_checkpoints:
-                return t
-            elif height < len(self.checkpoints) * 2016 + 74:
-                return d_t
-            else:
-                pass
+            if index < len(self.checkpoints) and not ignore_checkpoints:
+                h, t, d_t = self.checkpoints[index]
+                if height < len(self.checkpoints) * 2016 + 3:
+                    return t
+                elif height < len(self.checkpoints) * 2016 + 75:
+                    return d_t
+                else:
+                    pass
 
             return self.get_bcd_target(height)
 
